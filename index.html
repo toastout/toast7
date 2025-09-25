@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎥 채팅 분석기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Noto Sans KR', 'Inter', sans-serif; 
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #a0a0a0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen flex items-center justify-center p-4">
+    <div class="fixed top-4 left-4 z-20">
+        <button id="home-button" class="px-3 py-2 bg-white text-2xl rounded-full shadow-lg hover:bg-gray-200 transition-colors" title="홈으로">🍞️</button>
+    </div>
+    <div class="container max-w-4xl w-full bg-white rounded-2xl shadow-2xl p-6 sm:p-8 md:p-12 relative">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">🎥 채팅 분석기</h1>
+            <p class="text-gray-500 mt-2">채팅 .json 파일을 분석, 저장, 추출하세요.</p>
+        </div>
+
+        <!-- File Upload -->
+        <div id="file-upload-section" class="mb-8 p-6 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center">
+            <label for="file-upload" class="cursor-pointer group">
+                <svg class="w-12 h-12 text-gray-400 group-hover:text-indigo-500 transition-colors mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"></path>
+                </svg>
+                 <p id="file-name" class="mt-2 text-sm text-gray-600">파일을 드래그하거나 클릭하여 업로드하세요</p>
+                 <p class="text-xs text-gray-500">(.json 형식만 지원)</p>
+            </label>
+            <input id="file-upload" type="file" class="hidden" accept=".json">
+        </div>
+        
+        <!-- Stored File Info -->
+        <div id="stored-file-info" class="hidden mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+            <p class="text-sm text-blue-800"><strong id="stored-file-name"></strong> 파일이 브라우저에 저장되어 있습니다.</p>
+            <button id="clear-storage" class="mt-2 text-xs text-red-500 hover:underline">다른 파일 올리기</button>
+        </div>
+        
+        <div id="controls-section" class="hidden space-y-8">
+            <!-- Search -->
+            <div>
+                <label for="search-term" class="block text-lg font-semibold text-gray-700 mb-2">대화 내용 검색</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="search-term" placeholder="검색할 대화 내용을 입력하세요..." class="flex-grow p-3 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    <button id="search-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-md transition duration-300 transform hover:scale-105">검색</button>
+                </div>
+            </div>
+
+            <!-- View Options -->
+            <div>
+                <label class="block text-lg font-semibold text-gray-700 mb-2">보기 옵션</label>
+                <div class="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-lg">
+                    <button id="view-all-button" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md">전체 보기</button>
+                    <div class="flex items-center gap-2">
+                         <input type="number" id="items-per-page" placeholder="50" class="w-24 p-2 border border-gray-300 rounded-md bg-white">
+                         <button id="apply-view-button" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md">개씩 보기</button>
+                    </div>
+                    <div id="page-navigation" class="flex items-center gap-2">
+                        <button id="prev-page" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">&lt; 이전</button>
+                        <span id="page-info" class="font-semibold text-gray-600"></span>
+                        <button id="next-page" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">다음 &gt;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Extraction -->
+            <div>
+                 <label class="block text-lg font-semibold text-gray-700 mb-2">인덱스 추출</label>
+                 <p id="index-range-info" class="text-sm text-gray-500 -mt-2 mb-2"></p>
+                <div class="flex flex-wrap items-center gap-4 bg-gray-50 p-4 rounded-lg">
+                    <input type="number" id="start-index" class="w-full sm:w-32 p-2 border border-gray-300 rounded-md bg-white">
+                    <span class="text-gray-500">~</span>
+                    <input type="number" id="end-index" class="w-full sm:w-32 p-2 border border-gray-300 rounded-md bg-white">
+                    <button id="extract-button" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-md transition duration-300 transform hover:scale-105">추출하기</button>
+                    <button id="auto-split-button" class="w-full sm:w-auto bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-6 rounded-md transition duration-300 transform hover:scale-105">자동 분할 (100개)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="results-container" class="space-y-6 mt-8">
+            <div class="text-center text-gray-500 py-8">
+                <p>분석 결과를 여기에 표시합니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-upload');
+        const fileNameDisplay = document.getElementById('file-name');
+        const controlsSection = document.getElementById('controls-section');
+        const resultsContainer = document.getElementById('results-container');
+        const fileUploadSection = document.getElementById('file-upload-section');
+        const storedFileInfo = document.getElementById('stored-file-info');
+        const storedFileNameDisplay = document.getElementById('stored-file-name');
+        const clearStorageButton = document.getElementById('clear-storage');
+        const indexRangeInfo = document.getElementById('index-range-info');
+        const homeButton = document.getElementById('home-button');
+
+        const searchTermInput = document.getElementById('search-term');
+        const searchButton = document.getElementById('search-button');
+        
+        const itemsPerPageInput = document.getElementById('items-per-page');
+        const applyViewButton = document.getElementById('apply-view-button');
+        const viewAllButton = document.getElementById('view-all-button');
+        const pageNavigation = document.getElementById('page-navigation');
+        const prevPageButton = document.getElementById('prev-page');
+        const nextPageButton = document.getElementById('next-page');
+        const pageInfo = document.getElementById('page-info');
+
+        const startIndexInput = document.getElementById('start-index');
+        const endIndexInput = document.getElementById('end-index');
+        const extractButton = document.getElementById('extract-button');
+        const autoSplitButton = document.getElementById('auto-split-button');
+
+        // State
+        let fullJsonData = null;
+        let chatData = null;
+        let originalFileName = '';
+        let currentPage = 1;
+        let viewMode = 'all'; // 'all' or 'paginated'
+        let itemsPerPage = 50;
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromStorage();
+        });
+
+        // --- Event Listeners ---
+        fileInput.addEventListener('change', handleFileSelect);
+        searchButton.addEventListener('click', handleSearch);
+        searchTermInput.addEventListener('keyup', e => e.key === 'Enter' && handleSearch());
+        
+        applyViewButton.addEventListener('click', () => {
+            const count = parseInt(itemsPerPageInput.value, 10);
+            if (!isNaN(count) && count > 0) {
+                itemsPerPage = count;
+                viewMode = 'paginated';
+                currentPage = 1;
+                renderChats();
+            } else {
+                alert('유효한 숫자를 입력해주세요.');
+            }
+        });
+
+        viewAllButton.addEventListener('click', () => {
+            viewMode = 'all';
+            searchTermInput.value = '';
+            renderChats();
+        });
+
+        prevPageButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderChats();
+            }
+        });
+
+        nextPageButton.addEventListener('click', () => {
+            const dataToRender = chatData;
+            const totalPages = Math.ceil(dataToRender.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderChats();
+            }
+        });
+        
+        extractButton.addEventListener('click', handleExtract);
+        autoSplitButton.addEventListener('click', handleAutoSplitExtract);
+        clearStorageButton.addEventListener('click', clearStorageAndReset);
+        homeButton.addEventListener('click', () => {
+             window.location.href = "https://toastout.github.io/toast/";
+        });
+
+        // --- Main Functions ---
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            originalFileName = file.name.replace('.json', '');
+            fileNameDisplay.textContent = `'${file.name}' 로딩 중...`;
+            
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const content = e.target.result;
+                    fullJsonData = JSON.parse(content);
+
+                    if (fullJsonData?.data?.message) {
+                        chatData = fullJsonData.data.message;
+                        saveToStorage();
+                        displayData();
+                    } else {
+                        throw new Error("올바른 'risuChat' JSON 구조가 아닙니다.");
+                    }
+                } catch (error) {
+                    resetState();
+                    resultsContainer.innerHTML = createAlertCard('red', '오류', `${error.message}. 올바른 JSON 파일을 업로드해주세요.`);
+                }
+            };
+            reader.onerror = () => {
+                resetState();
+                resultsContainer.innerHTML = createAlertCard('red', '오류', '파일을 읽는 중 오류가 발생했습니다.');
+            };
+            reader.readAsText(file);
+        }
+
+        function displayData() {
+            fileNameDisplay.textContent = `'${originalFileName}.json' 분석 완료!`;
+            controlsSection.classList.remove('hidden');
+            fileUploadSection.classList.add('hidden');
+            storedFileInfo.classList.remove('hidden');
+            storedFileNameDisplay.textContent = `${originalFileName}.json`;
+            currentPage = 1;
+            viewMode = 'all';
+            itemsPerPageInput.value = itemsPerPage;
+
+            if (chatData && chatData.length > 0) {
+                const maxIndex = chatData.length - 1;
+                indexRangeInfo.textContent = `(사용 가능 인덱스: 0 ~ ${maxIndex})`;
+                startIndexInput.placeholder = '0';
+                endIndexInput.placeholder = maxIndex.toString();
+            } else {
+                indexRangeInfo.textContent = '(데이터 없음)';
+            }
+
+            renderChats();
+        }
+
+        function renderChats(searchResult = null) {
+            const dataToRender = searchResult || chatData;
+            if (!dataToRender) return;
+
+            resultsContainer.innerHTML = '';
+            
+            let paginatedItems;
+            let totalItems = dataToRender.length;
+            let totalPages = 1;
+
+            if (viewMode === 'paginated' && !searchResult) {
+                totalPages = Math.ceil(totalItems / itemsPerPage);
+                currentPage = Math.max(1, Math.min(currentPage, totalPages));
+                const startIndex = (currentPage - 1) * itemsPerPage;
+                paginatedItems = dataToRender.slice(startIndex, startIndex + itemsPerPage);
+            } else {
+                paginatedItems = dataToRender;
+            }
+
+            if(searchResult) {
+                const header = document.createElement('h2');
+                header.className = 'text-2xl font-bold text-gray-700 pb-2 border-b border-gray-200';
+                header.innerHTML = `"${escapeHtml(searchTermInput.value)}" 검색 결과 <span class="text-lg font-medium">(${paginatedItems.length}개)</span>`;
+                resultsContainer.appendChild(header);
+            }
+
+            paginatedItems.forEach(item => {
+                const originalIndex = chatData.findIndex(msg => msg.chatId === item.chatId && msg.time === item.time);
+                resultsContainer.appendChild(createResultCard(item, originalIndex));
+            });
+
+            if (totalItems === 0 && !searchResult) {
+                 resultsContainer.innerHTML = createAlertCard('gray', '결과 없음', '표시할 데이터가 없습니다.');
+            } else if (totalItems === 0 && searchResult) {
+                resultsContainer.appendChild(createAlertCard('gray', '검색 결과 없음', '일치하는 대화가 없습니다.'));
+            }
+
+            updatePaginationUI(totalItems, totalPages);
+        }
+        
+        function handleSearch() {
+            if (!chatData) {
+                alert('먼저 파일을 업로드해주세요.');
+                return;
+            }
+            const searchTerm = searchTermInput.value.trim().toLowerCase();
+            
+            if (!searchTerm) {
+                renderChats();
+                return;
+            }
+
+            const filteredData = chatData.filter(message => 
+                message.data && message.data.toLowerCase().includes(searchTerm)
+            );
+            
+            renderChats(filteredData);
+        }
+
+        function downloadJson(data, filename) {
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function handleExtract() {
+            if (!fullJsonData) {
+                alert('먼저 JSON 파일을 업로드해주세요.');
+                return;
+            }
+            const start = parseInt(startIndexInput.value, 10);
+            const end = parseInt(endIndexInput.value, 10);
+
+            if (isNaN(start) || isNaN(end) || start < 0 || end >= chatData.length || start > end) {
+                alert(`유효한 인덱스 범위를 입력해주세요 (0 ~ ${chatData.length - 1}).`);
+                return;
+            }
+
+            const newJsonData = JSON.parse(JSON.stringify(fullJsonData));
+            newJsonData.data.message = chatData.slice(start, end + 1);
+            downloadJson(newJsonData, `${originalFileName}_extracted_${start}-${end}.json`);
+        }
+
+        function handleAutoSplitExtract() {
+            if (!fullJsonData) {
+                alert('먼저 JSON 파일을 업로드해주세요.');
+                return;
+            }
+            const chunkSize = 100;
+            const totalMessages = chatData.length;
+            const numChunks = Math.ceil(totalMessages / chunkSize);
+            
+            if (confirm(`${totalMessages}개의 채팅을 100개 단위로 분할하여 총 ${numChunks}개의 파일로 다운로드합니다. 계속하시겠습니까?`)) {
+                for (let i = 0; i < numChunks; i++) {
+                    const start = i * chunkSize;
+                    const end = Math.min((i + 1) * chunkSize - 1, totalMessages - 1);
+                    
+                    const newJsonData = JSON.parse(JSON.stringify(fullJsonData));
+                    newJsonData.data.message = chatData.slice(start, end + 1);
+                    
+                    setTimeout(() => {
+                        downloadJson(newJsonData, `${originalFileName}_split_${start}-${end}.json`);
+                    }, i * 200);
+                }
+            }
+        }
+
+        // --- Storage Functions ---
+        function saveToStorage() {
+            try {
+                localStorage.setItem('risuAnalyzer_fullJsonData', JSON.stringify(fullJsonData));
+                localStorage.setItem('risuAnalyzer_originalFileName', originalFileName);
+            } catch (e) {
+                console.error("localStorage 저장 실패:", e);
+                alert("브라우저 저장 공간이 부족하여 데이터를 저장할 수 없습니다.");
+            }
+        }
+
+        function loadFromStorage() {
+            const storedData = localStorage.getItem('risuAnalyzer_fullJsonData');
+            const storedName = localStorage.getItem('risuAnalyzer_originalFileName');
+            if (storedData && storedName) {
+                try {
+                    fullJsonData = JSON.parse(storedData);
+                    chatData = fullJsonData.data.message;
+                    originalFileName = storedName;
+                    displayData();
+                } catch (e) {
+                    console.error("저장된 데이터 파싱 실패:", e);
+                    clearStorageAndReset();
+                }
+            }
+        }
+        
+        function clearStorageAndReset() {
+            localStorage.removeItem('risuAnalyzer_fullJsonData');
+            localStorage.removeItem('risuAnalyzer_originalFileName');
+            resetState();
+        }
+
+        function resetState() {
+            fullJsonData = null;
+            chatData = null;
+            originalFileName = '';
+            fileInput.value = '';
+            fileNameDisplay.textContent = '파일을 드래그하거나 클릭하여 업로드하세요';
+            controlsSection.classList.add('hidden');
+            fileUploadSection.classList.remove('hidden');
+            storedFileInfo.classList.add('hidden');
+            indexRangeInfo.textContent = '';
+            resultsContainer.innerHTML = '<div class="text-center text-gray-500 py-8"><p>분석 결과를 여기에 표시합니다.</p></div>';
+        }
+        
+        // --- UI & Helper Functions ---
+        function updatePaginationUI(totalItems, totalPages) {
+            if (viewMode === 'all' || totalItems === 0 || totalPages <= 1) {
+                pageNavigation.classList.add('hidden');
+            } else {
+                pageNavigation.classList.remove('hidden');
+                pageInfo.textContent = `페이지 ${currentPage} / ${totalPages}`;
+                prevPageButton.disabled = currentPage === 1;
+                nextPageButton.disabled = currentPage === totalPages;
+            }
+        }
+
+        function createResultCard(message, index) {
+            const card = document.createElement('div');
+            card.className = `p-6 border border-gray-200 bg-white rounded-lg shadow-sm transition-transform hover:scale-[1.01]`;
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-xl font-bold text-gray-900">Index: ${index}</h3>
+                </div>
+                <div class="text-xs text-gray-500 font-mono mb-4 break-all">
+                    <span class="font-semibold">ID:</span> ${message.chatId || 'N/A'}
+                </div>
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-200 max-h-48 overflow-y-auto">
+                    <p class="text-gray-700 whitespace-pre-wrap">${escapeHtml(message.data)}</p>
+                </div>
+            `;
+            return card;
+        }
+
+        function createAlertCard(color, title, message) {
+            const colors = {
+                red: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400' },
+                gray: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-400' },
+            };
+            const theme = colors[color] || colors.gray;
+            return `<div class="p-4 rounded-lg ${theme.bg} ${theme.text} border-l-4 ${theme.border}"><p class="font-bold">${title}</p><p>${message}</p></div>`;
+        }
+
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
+
